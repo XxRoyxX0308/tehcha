@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 42">
+  <path d="M7.6 1.9Q14 1.1 21.2 1.3T34.5 1.8Q35.2 11 34.9 21.2T34.4 40.3Q27 41.1 20.6 40.8T7.5 40.5Q6.8 31 7.1 20.8T7.6 1.9Z" fill="#A32A2F"/>
+  <rect x="9.4" y="3.4" width="23.2" height="35.2" rx=".6" fill="none" stroke="#F8EDE4" stroke-width=".9"/>
+  <text x="21" y="19.4" text-anchor="middle" fill="#F8EDE4" font-size="14.2" font-weight="700" font-family="Noto Serif TC, Songti TC, serif">得</text>
+  <text x="21" y="34.6" text-anchor="middle" fill="#F8EDE4" font-size="14.2" font-weight="700" font-family="Noto Serif TC, Songti TC, serif">茶</text>
+</svg>

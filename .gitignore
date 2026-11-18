@@ -1,0 +1,10 @@
+node_modules
+dist
+*.local
+.env
+/UI inspo
+資料庫系統.pdf
+
+# Laravel (backend)
+backend/vendor
+backend/storage/*.key
