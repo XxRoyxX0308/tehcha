@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { http, errorText } from '@/api'
 import CupArt from './CupArt.vue'
 import { useCatalog } from '@/stores/catalog'
 import { useCart } from '@/stores/cart'
@@ -9,7 +10,7 @@ import type { Product } from '@/types'
 
 // CUI-003: sweetness / ice are single-choice and required, toppings are optional extras.
 const props = defineProps<{ product: Product }>()
-const emit = defineEmits<{ close: []; added: [] }>()
+const emit = defineEmits<{ close: []; added: []; pick: [Product] }>()
 
 const catalog = useCatalog()
 const cart = useCart()
@@ -26,7 +27,7 @@ const qty = ref(1)
 
 const stock = computed(() => catalog.stockOf(props.product.id))
 // Cups of this product already in the cart count against stock too.
-const inCart = computed(() => cart.current.filter((i) => i.productId === props.product.id).reduce((s, i) => s + i.quantity, 0))
+const inCart = computed(() => cart.inCart(props.product.id))
 const available = computed(() => Math.max(0, stock.value - inCart.value))
 const qtyError = computed(() => validateQuantity(qty.value, available.value))
 
@@ -39,12 +40,32 @@ function toggleTopping(id: number) {
 function step(d: number) {
   qty.value = Math.max(1, Math.min(Math.max(1, available.value), qty.value + d))
 }
-function add() {
-  if (qtyError.value) return
-  cart.add(props.product.id, selected.value, qty.value)
-  emit('added')
-  emit('close')
+const busy = ref(false)
+const addError = ref('')
+async function add() {
+  if (qtyError.value || busy.value) return
+  busy.value = true
+  addError.value = ''
+  try {
+    await cart.add(props.product.id, selected.value, qty.value)
+    emit('added')
+    emit('close')
+  } catch (e) {
+    addError.value = errorText(e, '加入失敗，請再試一次')
+    void catalog.refreshStock()
+  } finally {
+    busy.value = false
+  }
 }
+
+// SRMS-F-005: what people who bought this drink also bought
+const also = ref<Product[]>([])
+onMounted(async () => {
+  try {
+    const r = await http.get<{ productId: number }[]>(`/products/${props.product.id}/also-bought`)
+    also.value = r.map((x) => catalog.productById(x.productId)).filter((p): p is Product => !!p && catalog.stockOf(p.id) > 0).slice(0, 3)
+  } catch { /* optional */ }
+})
 
 const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
 onMounted(() => { window.addEventListener('keydown', onKey); document.body.style.overflow = 'hidden' })
@@ -57,7 +78,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
       <button class="md__x" aria-label="關閉" @click="emit('close')">✕</button>
 
       <div class="md__head">
-        <div class="md__art"><CupArt :tint="product.tint" :topping="product.topping" :id="product.id" /></div>
+        <div class="md__art"><img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" /><CupArt v-else :tint="product.tint" :topping="product.topping" :id="product.id" /></div>
         <div>
           <p class="en">{{ product.nameEn }}</p>
           <h2>{{ product.name }}</h2>
@@ -87,6 +108,13 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
         </div>
       </div>
 
+      <div v-if="also.length" class="grp also">
+        <h3>買過的人也買了 <span class="en">Also bought</span></h3>
+        <div class="chips">
+          <button v-for="p in also" :key="p.id" class="chip" @click="emit('pick', p)">{{ p.name }}</button>
+        </div>
+      </div>
+
       <div class="md__foot">
         <div class="row between">
           <div class="step" role="group" aria-label="數量">
@@ -96,8 +124,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
           </div>
           <p class="price" style="font-size:22px">{{ money(unit * qty) }}</p>
         </div>
-        <p v-if="qtyError" class="error" style="margin-top:8px">{{ qtyError }}</p>
-        <button class="btn btn--primary add" :disabled="!!qtyError" @click="add">加入購物車</button>
+        <p v-if="qtyError || addError" class="error" style="margin-top:8px" role="alert">{{ addError || qtyError }}</p>
+        <button class="btn btn--primary add" :disabled="!!qtyError || busy" @click="add">{{ busy ? '加入中…' : '加入購物車' }}</button>
       </div>
     </section>
   </div>
@@ -109,7 +137,8 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
 .md__x { position: absolute; top: 12px; right: 14px; background: none; border: 0; font-size: 18px; cursor: pointer; color: var(--tea); }
 .md__head { display: flex; gap: 20px; align-items: center; }
 .md__art { flex: none; width: 84px; height: 130px; }
-.md__art svg { width: 100%; height: 100%; }
+.md__art svg, .md__art img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+.also { padding-top: 14px; border-top: 1px dashed var(--line); }
 .grp { margin-top: 16px; }
 .grp h3 { font-size: 16px; margin-bottom: 8px; }
 .grp .en { margin-left: 6px; }

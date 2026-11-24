@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import Seal from './Seal.vue'
 </script>
 
@@ -8,7 +9,7 @@ import Seal from './Seal.vue'
     <div class="wrap foot__in">
       <p class="foot__l">得一杯好茶，得片刻清閒。</p>
       <div class="foot__c"><Seal :size="46" /><span class="en">Tehcha</span></div>
-      <p class="foot__r small muted">手搖飲管理系統 BMS · 前端原型</p>
+      <p class="foot__r small muted">手搖飲管理系統 BMS · <RouterLink to="/stores">門市與評價</RouterLink></p>
     </div>
   </footer>
 </template>

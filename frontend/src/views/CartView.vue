@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import Art from '@/components/Art.vue'
 import PriceBreakdown from '@/components/PriceBreakdown.vue'
-import { useCart } from '@/stores/cart'
+import { useCart, useQuote } from '@/stores/cart'
 import { useCatalog } from '@/stores/catalog'
 import { useSession } from '@/stores/session'
+import { errorText } from '@/api'
 import { validateQuantity } from '@/lib/pricing'
 import { money } from '@/lib/format'
 
@@ -13,6 +14,7 @@ const cart = useCart()
 const catalog = useCatalog()
 const session = useSession()
 const router = useRouter()
+const error = ref('')
 
 const rows = computed(() =>
   cart.current.flatMap((i) => {
@@ -20,17 +22,27 @@ const rows = computed(() =>
     if (!p) return []
     const names = i.optionIds.map((id) => catalog.optionById(id)?.name).filter(Boolean).join('・')
     const unit = p.price + cart.extraOf(i.optionIds)
-    // BR-007: quantity may not exceed this store's stock.
-    const err = validateQuantity(i.quantity, catalog.stockOf(p.id))
-    return [{ i, p, names, unit, err }]
+    // BR-007 / SCMS-F-004: all lines of one drink together may not exceed this store's stock
+    const left = catalog.stockOf(p.id) - cart.inCart(p.id, i.id)
+    const err = validateQuantity(i.quantity, left)
+    return [{ i, p, names, unit, err, left }]
   }),
 )
 
-const totals = computed(() => cart.totals('pickup'))
-const hasError = computed(() => rows.value.some((r) => r.err))
+// SCMS-F-003: priced by the API, with the same code the order uses
+const { quote, error: quoteError } = useQuote(ref('pickup'))
+const hasError = computed(() => rows.value.some((r) => r.err) || !!quote.value?.problems.length)
 
-function setQty(id: number, q: number) { if (q >= 1) cart.setQuantity(id, q) }
+async function setQty(id: number, q: number) {
+  if (q < 1) return
+  error.value = ''
+  try { await cart.update(id, { quantity: q }) } catch (e) { error.value = errorText(e) }
+}
+async function remove(id: number) {
+  try { await cart.remove(id) } catch (e) { error.value = errorText(e) }
+}
 function checkout() {
+  if (session.isLoggedIn && !session.isCustomer) { error.value = '店員與管理員帳號不能下單，請改用顧客帳號'; return }
   void router.push(session.isLoggedIn ? '/checkout' : { path: '/login', query: { next: '/checkout' } })
 }
 </script>
@@ -45,6 +57,7 @@ function checkout() {
     <div v-if="!rows.length" class="empty center">
       <Art kind="bowl" class="empty__art" />
       <p class="muted">杯子還是空的。</p>
+      <p v-if="cart.otherStoreCount" class="small muted">其他門市的購物車還有 {{ cart.otherStoreCount }} 項，切換門市即可看到。</p>
       <RouterLink to="/menu" class="btn btn--primary">去挑一杯</RouterLink>
     </div>
 
@@ -57,19 +70,23 @@ function checkout() {
             <p v-if="r.err" class="error">{{ r.err }}</p>
           </div>
           <div class="step">
-            <button class="chip" :disabled="r.i.quantity <= 1" aria-label="減少" @click="setQty(r.i.id, r.i.quantity - 1)">−</button>
+            <button class="chip" :disabled="r.i.quantity <= 1" :aria-label="`減少 ${r.p.name}`" @click="setQty(r.i.id, r.i.quantity - 1)">−</button>
             <output>{{ r.i.quantity }}</output>
-            <button class="chip" :disabled="r.i.quantity >= catalog.stockOf(r.p.id)" aria-label="增加" @click="setQty(r.i.id, r.i.quantity + 1)">＋</button>
+            <button class="chip" :disabled="r.i.quantity >= r.left" :aria-label="`增加 ${r.p.name}`" @click="setQty(r.i.id, r.i.quantity + 1)">＋</button>
           </div>
           <p class="price amt">{{ money(r.unit * r.i.quantity) }}</p>
-          <button class="rm" aria-label="移除" @click="cart.remove(r.i.id)">✕</button>
+          <button class="rm" :aria-label="`移除 ${r.p.name}`" @click="remove(r.i.id)">✕</button>
         </li>
       </ul>
 
       <aside class="card sum stack" style="--gap: 16px">
         <h2>結帳明細</h2>
-        <PriceBreakdown v-bind="totals" :discounts="totals.applied" :total="totals.total" />
-        <p class="small muted">外送將加收 NT$60 運費；點數於下一步使用。</p>
+        <PriceBreakdown v-if="quote" v-bind="quote" :discounts="quote.applied" :total="quote.total" />
+        <p v-else-if="quoteError" class="error">{{ quoteError }}</p>
+        <p v-else class="muted small">計算中…</p>
+        <p v-for="p in quote?.problems ?? []" :key="p" class="error">{{ p }}</p>
+        <p class="small muted">以到店自取試算；外送加收 NT$60 運費，點數於下一步使用。</p>
+        <p v-if="error" class="error" role="alert">{{ error }}</p>
         <button class="btn btn--primary" :disabled="hasError" @click="checkout">前往結帳</button>
         <RouterLink to="/menu" class="small center">繼續選購</RouterLink>
       </aside>
@@ -84,10 +101,10 @@ function checkout() {
 .line:first-child { border-top: 1px solid var(--line); }
 .step { display: flex; align-items: center; gap: 10px; }
 .step output { min-width: 24px; text-align: center; font-family: var(--serif); font-size: 18px; }
-.step .chip { padding: 0; width: 34px; min-height: 34px; justify-content: center; }
+.step .chip { padding: 0; width: 44px; min-height: 44px; justify-content: center; }
 .step .chip:disabled { opacity: 0.4; cursor: not-allowed; }
 .amt { min-width: 84px; text-align: right; }
-.rm { background: none; border: 0; color: var(--tea); cursor: pointer; padding: 6px; }
+.rm { background: none; border: 0; color: var(--tea); cursor: pointer; padding: 6px; min-width: 44px; min-height: 44px; }
 .rm:hover { color: var(--seal); }
 .sum { padding: 22px; position: sticky; top: 96px; }
 .empty { display: grid; justify-items: center; gap: 16px; padding-block: 32px; }

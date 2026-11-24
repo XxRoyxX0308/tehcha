@@ -1,0 +1,25 @@
+{
+  "name": "tehcha-bms",
+  "private": true,
+  "type": "module",
+  "description": "得茶 Tehcha · 手搖飲管理系統 (BMS): Vue 3 front end + TypeScript API on Vercel + PostgreSQL (Neon)",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:local": "node backend/devdb/start.mjs",
+    "db:migrate": "node backend/scripts/migrate.mjs",
+    "db:seed": "node backend/scripts/migrate.mjs --seed",
+    "db:reset": "node backend/scripts/migrate.mjs --reset --seed",
+    "dev:api": "npm run dev -w backend",
+    "dev:web": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "vercel-build": "node backend/scripts/migrate.mjs --seed-if-empty --skip-without-db && npm run build -w frontend",
+    "test": "npm test -w backend && npm test -w frontend",
+    "typecheck": "npm run typecheck -w backend && npm run build -w frontend"
+  }
+}

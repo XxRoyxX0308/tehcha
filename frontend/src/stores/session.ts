@@ -1,55 +1,49 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api } from '@/api'
+import { http } from '@/api'
 import type { User } from '@/types'
 
-const KEY = 'bms-session'
-
+// The signed-in user comes from the server cookie session (GET /api/auth/me).
 export const useSession = defineStore('session', () => {
   const user = ref<User | null>(null)
-  const points = ref(0)
-
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) user.value = JSON.parse(raw) as User
-  } catch { /* ignore */ }
 
   const isLoggedIn = computed(() => !!user.value)
+  const has = (role: string) => !!user.value?.roles.includes(role as never)
+  const isCustomer = computed(() => has('customer') && !!user.value?.memberId)
+  const isStaff = computed(() => has('staff') || has('admin'))
+  const isAdmin = computed(() => has('admin'))
+  const points = computed(() => user.value?.pointsBalance ?? 0)
+  /** Where this account lands after signing in. */
+  const home = computed(() => (isCustomer.value ? '/menu' : isStaff.value ? '/staff' : '/'))
 
-  function persist() {
+  async function refresh() {
     try {
-      if (user.value) localStorage.setItem(KEY, JSON.stringify(user.value))
-      else localStorage.removeItem(KEY)
-    } catch { /* ignore */ }
-  }
-
-  async function refreshPoints() {
-    points.value = user.value ? (await api.getMember(user.value.userId)).pointsBalance : 0
+      user.value = (await http.get<{ user: User | null }>('/auth/me')).user
+    } catch {
+      user.value = null
+    }
   }
 
   async function login(loginId: string, password: string) {
-    user.value = await api.login(loginId, password)
-    persist()
-    await refreshPoints()
+    user.value = (await http.post<{ user: User }>('/auth/login', { loginId, password })).user
   }
 
+  /** Returns 'verify' when the account waits for the e-mail link (UMS-F-003). */
   async function register(input: { loginId: string; name: string; password: string; email: string; address: string }) {
-    user.value = await api.register(input)
-    persist()
-    await refreshPoints()
+    const r = await http.post<{ user: User | null; needsVerification?: boolean }>('/auth/register', input)
+    if (r.needsVerification) return 'verify' as const
+    user.value = r.user
+    return 'ok' as const
   }
 
-  function logout() {
-    user.value = null
-    points.value = 0
-    persist()
+  async function logout() {
+    try { await http.post('/auth/logout') } finally { user.value = null }
   }
 
   async function updateProfile(patch: { name: string; email: string; address: string }) {
-    if (!user.value) return
-    user.value = await api.updateProfile(user.value.userId, patch)
-    persist()
+    await http.patch('/me', patch)
+    await refresh()
   }
 
-  return { user, points, isLoggedIn, login, register, logout, refreshPoints, updateProfile }
+  return { user, isLoggedIn, isCustomer, isStaff, isAdmin, points, home, refresh, refreshPoints: refresh, login, register, logout, updateProfile }
 })

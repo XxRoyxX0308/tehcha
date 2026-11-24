@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { STATUS_FLOW } from '@/lib/pricing'
-import { STATUS_LABEL } from '@/lib/format'
+import { STATUS_LABEL, maskTime } from '@/lib/format'
 import type { Fulfillment, OrderStatus } from '@/types'
 
-// CUI-005 / OCS-F-003: the four fixed stages, in order.
-const props = defineProps<{ status: OrderStatus; fulfillment: Fulfillment }>()
+// CUI-005 / OCS-F-003: the four fixed stages, in order, with the time each was reached.
+const props = defineProps<{ status: OrderStatus; fulfillment: Fulfillment; timeline?: { status: OrderStatus; at: string }[] }>()
 const idx = computed(() => STATUS_FLOW.indexOf(props.status))
 const label = (s: OrderStatus) =>
   s === 'shipping' ? (props.fulfillment === 'pickup' ? { zh: '待取餐', en: 'Ready' } : { zh: '配送中', en: 'On the way' }) : STATUS_LABEL[s]
+const at = (s: OrderStatus) => props.timeline?.find((t) => t.status === s)?.at
 </script>
 
 <template>
@@ -16,7 +17,7 @@ const label = (s: OrderStatus) =>
     <li v-for="(s, i) in STATUS_FLOW" :key="s" :class="{ done: i < idx, now: i === idx }" :aria-current="i === idx ? 'step' : undefined">
       <span class="dot">{{ i < idx ? '✓' : i + 1 }}</span>
       <span class="zh">{{ label(s).zh }}</span>
-      <span class="en">{{ label(s).en }}</span>
+      <span class="en">{{ at(s) ? maskTime(at(s)!) : label(s).en }}</span>
     </li>
   </ol>
 </template>

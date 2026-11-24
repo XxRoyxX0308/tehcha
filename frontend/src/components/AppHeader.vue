@@ -17,8 +17,8 @@ const storeModel = computed({
   set: (id: number) => { void catalog.setStore(id) },
 })
 
-function logout() {
-  session.logout()
+async function logout() {
+  await session.logout()
   void router.push('/')
 }
 </script>
@@ -35,6 +35,8 @@ function logout() {
         <RouterLink to="/menu">菜單</RouterLink>
         <RouterLink to="/orders">訂單</RouterLink>
         <RouterLink to="/points">點數</RouterLink>
+        <RouterLink to="/stores">門市</RouterLink>
+        <RouterLink v-if="session.isStaff" to="/staff">後台</RouterLink>
       </nav>
 
       <div class="tools">

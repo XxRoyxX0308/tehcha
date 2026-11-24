@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import ProductCard from '@/components/ProductCard.vue'
 import CustomizeModal from '@/components/CustomizeModal.vue'
 import { useCatalog } from '@/stores/catalog'
 import { useSession } from '@/stores/session'
 import { useCart } from '@/stores/cart'
-import { api } from '@/api'
+import { http } from '@/api'
 import { useMedia } from '@/lib/useMedia'
 import type { Product } from '@/types'
 
@@ -22,36 +22,43 @@ const cat = ref<number | 0>(0)
 const price = ref<'all' | 'lt50' | '50-65' | 'gt65'>('all')
 const picked = ref<Product | null>(null)
 const toast = ref('')
+const PRICE: Record<string, { minPrice?: number; maxPrice?: number }> = {
+  all: {}, lt50: { maxPrice: 49 }, '50-65': { minPrice: 50, maxPrice: 65 }, gt65: { minPrice: 66 },
+}
 
-// SRMS-F-004: "your usual" comes from the logged-in customer's order history.
+// SRMS-F-004: "your usual" from the signed-in customer's own orders.
 const usualIds = ref<number[]>([])
 onMounted(async () => {
-  if (!session.user) return
-  const orders = await api.listOrders(session.user.userId)
-  const tally = new Map<number, number>()
-  for (const o of orders) for (const it of o.items) tally.set(it.productId, (tally.get(it.productId) ?? 0) + it.quantity)
-  usualIds.value = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => id)
+  void catalog.refreshStock()
+  if (!session.isCustomer) return
+  try { usualIds.value = (await http.get<{ productId: number }[]>('/me/usual')).map((r) => r.productId) } catch { /* optional */ }
 })
 
 const filtering = computed(() => !!q.value.trim() || cat.value !== 0 || price.value !== 'all')
 
-const results = computed(() => {
-  const k = q.value.trim().toLowerCase()
-  return catalog.products.filter((p) => {
-    if (cat.value && p.categoryId !== cat.value) return false
-    if (price.value === 'lt50' && p.price >= 50) return false
-    if (price.value === '50-65' && (p.price < 50 || p.price > 65)) return false
-    if (price.value === 'gt65' && p.price <= 65) return false
-    if (k && !(p.name + p.nameEn + p.description).toLowerCase().includes(k)) return false
-    return true
-  })
+// SRMS-F-001/002: keyword, category and price range are searched in the database.
+const resultIds = ref<number[] | null>(null)
+let timer: ReturnType<typeof setTimeout> | undefined
+let seq = 0
+watch([q, cat, price], () => {
+  clearTimeout(timer)
+  timer = setTimeout(async () => {
+    const mine = ++seq
+    try {
+      const r = await http.get<{ ids: number[] }>('/products/search', { q: q.value.trim(), categoryId: cat.value || undefined, ...PRICE[price.value] })
+      if (mine === seq) resultIds.value = r.ids
+    } catch { if (mine === seq) resultIds.value = null }
+  }, 220)
 })
-
-// SRMS-F-003: popular = highest sales.
-const popular = computed(() =>
-  [...catalog.products].sort((a, b) => (catalog.salesCount[b.id] ?? 0) - (catalog.salesCount[a.id] ?? 0)).slice(0, 3),
+const results = computed(() =>
+  filtering.value && resultIds.value
+    ? resultIds.value.map((id) => catalog.productById(id)).filter((p): p is Product => !!p)
+    : catalog.products,
 )
-const usual = computed(() => usualIds.value.map((id) => catalog.productById(id)).filter((p): p is Product => !!p))
+
+// SRMS-F-003: best sellers of the last 30 days.
+const popular = computed(() => catalog.popular.slice(0, 3).map((r) => catalog.productById(r.productId)).filter((p): p is Product => !!p))
+const usual = computed(() => usualIds.value.slice(0, 3).map((id) => catalog.productById(id)).filter((p): p is Product => !!p))
 
 function added() {
   toast.value = '已加入購物車'
@@ -88,7 +95,7 @@ function added() {
         </div>
       </section>
       <section class="stack" style="--gap: 16px">
-        <h2>本店熱門 <span class="en">Popular</span></h2>
+        <h2>熱門飲品 <span class="en">Popular</span></h2>
         <div :class="phone ? 'rail' : 'grid'">
           <ProductCard v-for="p in popular" :key="p.id" :product="p" :variant="phone ? 'tile' : 'card'" @pick="picked = $event" />
         </div>
@@ -105,7 +112,7 @@ function added() {
       <button class="btn btn--primary" @click="router.push('/cart')">查看購物車（{{ cart.count }} 杯）</button>
     </div>
 
-    <CustomizeModal v-if="picked" :product="picked" @close="picked = null" @added="added" />
+    <CustomizeModal v-if="picked" :key="picked.id" :product="picked" @close="picked = null" @added="added" @pick="picked = $event" />
     <div v-if="toast" class="toast" role="status">{{ toast }}</div>
   </div>
 </template>

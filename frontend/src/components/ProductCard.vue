@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import CupArt from './CupArt.vue'
 import Seal from './Seal.vue'
 import { useCatalog } from '@/stores/catalog'
-import { money, todayStr } from '@/lib/format'
+import { money } from '@/lib/format'
 import type { Product } from '@/types'
 
 // variant "card": the paper-label card. On phones (≤600px) it reflows into a compact row
@@ -15,7 +15,7 @@ const emit = defineEmits<{ pick: [Product] }>()
 const catalog = useCatalog()
 const stock = computed(() => catalog.stockOf(props.product.id))
 const soldOut = computed(() => stock.value <= 0)
-const special = computed(() => catalog.specialFor(props.product.id, todayStr()))
+const special = computed(() => catalog.specialFor(props.product.id))
 const category = computed(() => catalog.categoryById(props.product.categoryId))
 const wash = computed(() => `color-mix(in srgb, ${props.product.tint} 14%, var(--paper))`)
 const badge = computed(() =>
@@ -30,7 +30,7 @@ const pick = () => { if (!soldOut.value) emit('pick', props.product) }
 <template>
   <button v-if="variant === 'tile'" class="tile card" :class="{ 'is-out': soldOut }" :disabled="soldOut" @click="pick">
     <span class="tile__art" :style="{ background: wash }">
-      <CupArt :tint="product.tint" :topping="product.topping" :id="product.id" />
+      <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="photo" loading="lazy" /><CupArt v-else :tint="product.tint" :topping="product.topping" :id="product.id" />
       <span v-if="badge" class="badge" :class="badge.cls">{{ badge.text }}</span>
     </span>
     <span class="tile__name">{{ product.name }}</span>
@@ -48,7 +48,7 @@ const pick = () => { if (!soldOut.value) emit('pick', props.product) }
     <p class="pc__tag">{{ product.tagline }}</p>
 
     <div class="pc__art" :style="{ background: wash }" @click="pick">
-      <CupArt :tint="product.tint" :topping="product.topping" :id="product.id" />
+      <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="photo" loading="lazy" /><CupArt v-else :tint="product.tint" :topping="product.topping" :id="product.id" />
       <span v-if="badge" class="badge" :class="badge.cls">{{ badge.text }}</span>
     </div>
 
@@ -68,7 +68,8 @@ const pick = () => { if (!soldOut.value) emit('pick', props.product) }
 }
 .badge.low { background: var(--tea); }
 .badge.out { background: var(--seal); }
-.is-out :deep(svg) { opacity: 0.4; filter: grayscale(0.6); }
+.photo { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
+.is-out :deep(svg), .is-out .photo { opacity: 0.4; filter: grayscale(0.6); }
 
 /* ── card (desktop / tablet) ── */
 .pc {

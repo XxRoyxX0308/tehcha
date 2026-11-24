@@ -1,14 +1,28 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import TabBar from '@/components/TabBar.vue'
+import ConsoleShell from '@/components/console/ConsoleShell.vue'
+import Maintenance from '@/components/Maintenance.vue'
+import { systemState } from '@/api'
+import { useSession } from '@/stores/session'
+
+const route = useRoute()
+const session = useSession()
+const consoleLayout = computed(() => !!route.meta.console)
+// BMS-N-005: everyone but admins sees the maintenance notice
+const blocked = computed(() => systemState.maintenance && !session.isAdmin && route.path !== '/login')
 </script>
 
 <template>
-  <div class="shell">
+  <Maintenance v-if="blocked" />
+  <ConsoleShell v-else-if="consoleLayout"><RouterView /></ConsoleShell>
+  <div v-else class="shell">
+    <a class="skip" href="#main">跳到主要內容</a>
     <AppHeader />
-    <main class="grow"><RouterView /></main>
+    <main id="main" class="grow"><RouterView /></main>
     <AppFooter />
     <TabBar />
   </div>

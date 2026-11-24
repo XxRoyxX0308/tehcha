@@ -25,9 +25,9 @@ const session = useSession()
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" /></svg>
       <span>訂單</span>
     </RouterLink>
-    <RouterLink to="/points" class="tab">
+    <RouterLink :to="session.isStaff ? '/staff' : '/points'" class="tab">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5c1.6 1.5 1.6 3.5 0 4.5-1.6-1-1.6-3 0-4.5zM12 12c1.8-.4 3.4.5 3.6 2.4-1.8.4-3.2-.6-3.6-2.4zM12 12c-.4 1.8-2 2.8-3.6 2.4.2-1.9 1.8-2.8 3.6-2.4z" /></svg>
-      <span>點數</span>
+      <span>{{ session.isStaff ? '後台' : '點數' }}</span>
     </RouterLink>
     <RouterLink :to="session.isLoggedIn ? '/account' : '/login'" class="tab">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.8" /><path d="M4.5 20.5c1-3.8 4-5.7 7.5-5.7s6.5 1.9 7.5 5.7" /></svg>

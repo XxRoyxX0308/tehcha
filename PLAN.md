@@ -1,6 +1,7 @@
-# BMS 手搖飲管理系統 — Front-End Plan
+# BMS 手搖飲管理系統 — Plan
 
-Source: `資料庫系統.pdf` (SRS v1.0, NTUT). Front end only for now; back end later.
+Source: `資料庫系統.pdf` (SRS v1.0, NTUT). All phases below are built, back end included; the current
+architecture, setup and every change against the SRS are in [README.md](README.md).
 
 ## What the SRS says
 
@@ -94,10 +95,11 @@ Rules: no photos (illustrated cups instead), no gradients, no drop-shadow stacks
 
 ## Decisions made while building (override if wrong)
 
-- Customer UI: no component library, hand-written CSS. Staff/admin may still use one.
-- Language: Traditional Chinese primary, English secondary, no switcher yet.
-- `Discount.discount_rate` is read as the fraction taken off (0.1 = 10% off).
+- Back end: TypeScript (Hono + node-postgres) on Vercel instead of Laravel; schema, constraints and REST shape follow the SRS. See README, "與規格書不同的地方".
+- Customer UI: no component library, hand-written CSS; the staff and admin console uses the same tokens.
+- Language: Traditional Chinese primary, English secondary, no switcher.
+- `Discount.discount_rate` is the fraction taken off (0.1 = 10% off = 9 折).
 - Tax is computed on the item subtotal before discounts.
-- Cart is kept in `localStorage` (guest cart merges into the account on login).
-- Mock back end is a `localStorage` database behind an async `api` module; real REST calls replace that module only.
-- The order tracking page has a clearly marked demo button that advances status, standing in for the staff board until the employee end exists.
+- Amounts are computed only by the API (`POST /api/quote` and the order), so screen and receipt agree.
+- A guest's cart is kept in `localStorage` and merges into the account's server cart at sign-in.
+- Live status (order tracking, staff board) polls every 3 seconds instead of a Redis push.
