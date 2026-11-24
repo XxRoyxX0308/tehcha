@@ -18,7 +18,7 @@
     "dev:api": "npm run dev -w backend",
     "dev:web": "npm run dev -w frontend",
     "build": "npm run build -w frontend",
-    "vercel-build": "node backend/scripts/migrate.mjs --seed-if-empty --skip-without-db && npm run build -w frontend",
+    "build:vercel": "node backend/scripts/migrate.mjs --seed-if-empty --skip-without-db && npm run build -w frontend",
     "test": "npm test -w backend && npm test -w frontend",
     "typecheck": "npm run typecheck -w backend && npm run build -w frontend"
   }

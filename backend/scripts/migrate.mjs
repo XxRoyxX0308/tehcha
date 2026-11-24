@@ -18,8 +18,20 @@ const root = path.resolve(here, '../..')
 const dbDir = path.resolve(here, '../db')
 const args = new Set(process.argv.slice(2))
 
+/** Same adjustment as backend/src/db.ts: drop channel_binding, spell out sslmode=verify-full. */
+function cleanUrl(url) {
+  try {
+    const u = new URL(url)
+    u.searchParams.delete('channel_binding')
+    if (u.searchParams.get('sslmode') === 'require') u.searchParams.set('sslmode', 'verify-full')
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 export async function migrate(connectionString, { reset = false, seed = false, seedIfEmpty = false, log = console.log } = {}) {
-  const client = new pg.Client({ connectionString })
+  const client = new pg.Client({ connectionString: cleanUrl(connectionString) })
   await client.connect()
   try {
     if (reset) {

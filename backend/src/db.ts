@@ -12,11 +12,13 @@ export type Db = pg.Pool | pg.PoolClient
 let pool: pg.Pool | null = null
 let poolUrl = ''
 
-/** node-postgres does not understand Neon's `channel_binding` parameter; drop it. */
-function cleanUrl(url: string): string {
+/** Neon's connection string, adjusted for node-postgres: it does not understand `channel_binding`,
+ *  and it already treats `sslmode=require` as `verify-full` (saying so skips its deprecation warning). */
+export function cleanUrl(url: string): string {
   try {
     const u = new URL(url)
     u.searchParams.delete('channel_binding')
+    if (u.searchParams.get('sslmode') === 'require') u.searchParams.set('sslmode', 'verify-full')
     return u.toString()
   } catch {
     return url

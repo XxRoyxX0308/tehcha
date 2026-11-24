@@ -1,0 +1,18 @@
+{
+  // Used by Vercel to compile the API function (api/index.ts and everything it imports).
+  // Vercel looks for the tsconfig nearest the entry point, which is this one.
+  // rewriteRelativeImportExtensions turns `import './db.ts'` into `import './db.js'` in the
+  // output, matching the .js files Vercel deploys. The front end has its own tsconfig.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rewriteRelativeImportExtensions": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "isolatedModules": true,
+    "types": ["node"]
+  },
+  "include": ["api", "backend/src"]
+}
