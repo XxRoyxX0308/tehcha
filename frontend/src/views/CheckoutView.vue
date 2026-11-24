@@ -124,7 +124,8 @@ async function place() {
 .pad { padding: 16px 18px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .pts { max-width: 140px; }
-.sum { padding: 22px; position: sticky; top: 96px; }
+/* stays below the header, and moves up with it when the header slides away */
+.sum { padding: 22px; position: sticky; top: calc(var(--head-h, 84px) + 12px); transition: top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .items { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
 h2 .en { margin-left: 8px; }
 .sum > .btn { width: 100%; }

@@ -17,7 +17,7 @@ const session = useSession()
     <RouterLink to="/cart" class="tab">
       <span class="ico">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9zM9 8V6.5a3 3 0 0 1 6 0V8" /></svg>
-        <b v-if="cart.count" class="badge">{{ cart.count }}</b>
+        <b v-if="cart.count" :key="cart.count" class="badge">{{ cart.count }}</b>
       </span>
       <span>購物車</span>
     </RouterLink>
@@ -47,15 +47,19 @@ const session = useSession()
 .tab {
   display: grid; justify-items: center; gap: 2px; padding: 4px 0;
   color: var(--tea); font-size: 11px; text-decoration: none;
+  transition: color 0.15s, transform 0.12s ease;
 }
+.tab:hover { text-decoration: none; }
+.tab:active { transform: scale(0.94); }
 .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .tab.router-link-active { color: var(--qinghua); font-weight: 700; }
 .tab.router-link-active svg { stroke-width: 1.9; }
-.ico { position: relative; }
+.ico { position: relative; display: grid; }
 .badge {
   position: absolute; top: -4px; right: -10px; min-width: 18px; height: 18px; padding: 0 5px;
   display: grid; place-items: center; border-radius: 9px;
   background: var(--seal); color: #fff; font-size: 11px; font-weight: 700;
+  animation: bump 0.36s ease-out;
 }
 @media (max-width: 720px) { .tabs { display: grid; } }
 </style>

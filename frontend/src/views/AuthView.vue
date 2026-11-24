@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Art from '@/components/Art.vue'
 import { errorText } from '@/api'
@@ -18,7 +18,6 @@ const f = reactive({ loginId: '', name: '', password: '', email: '', address: ''
 const error = ref('')
 const info = ref(route.query.verified === '1' ? 'E-mail 已驗證，請登入。' : route.query.verified === '0' ? '驗證連結無效或已過期。' : '')
 const busy = ref(false)
-const demo = computed(() => props.mode === 'login')
 
 function validate(): string {
   if (!f.loginId.trim()) return '請輸入登入帳號'
@@ -54,7 +53,6 @@ async function submit() {
     busy.value = false
   }
 }
-function fill(id: string, pw: string) { f.loginId = id; f.password = pw }
 </script>
 
 <template>
@@ -83,13 +81,6 @@ function fill(id: string, pw: string) { f.loginId = id; f.password = pw }
         <template v-if="mode === 'login'">還沒有帳號？<RouterLink :to="{ path: '/register', query: route.query }">加入會員</RouterLink></template>
         <template v-else>已經有帳號？<RouterLink :to="{ path: '/login', query: route.query }">登入</RouterLink></template>
       </p>
-
-      <div v-if="demo" class="demo small">
-        <span class="muted">試用帳號：</span>
-        <button type="button" class="linkbtn" @click="fill('demo', 'demo1234')">顧客 demo</button>
-        <button type="button" class="linkbtn" @click="fill('staff_ntut', 'staff1234')">店員 staff_ntut</button>
-        <button type="button" class="linkbtn" @click="fill('admin', 'admin1234')">管理員 admin</button>
-      </div>
     </form>
   </div>
 </template>
@@ -97,7 +88,5 @@ function fill(id: string, pw: string) { f.loginId = id; f.password = pw }
 <style scoped>
 .auth { display: grid; grid-template-columns: 1fr minmax(0, 420px); gap: clamp(24px, 8vw, 96px); align-items: center; max-width: 900px; }
 .art { width: min(100%, 300px); justify-self: center; color: var(--qinghua); }
-.demo { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
-.demo .linkbtn { min-height: 32px; }
 @media (max-width: 720px) { .auth { grid-template-columns: 1fr; } .art { width: 120px; } }
 </style>

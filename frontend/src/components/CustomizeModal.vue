@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { http, errorText } from '@/api'
 import CupArt from './CupArt.vue'
 import { useCatalog } from '@/stores/catalog'
 import { useCart } from '@/stores/cart'
 import { validateQuantity } from '@/lib/pricing'
 import { money } from '@/lib/format'
+import { useModal } from '@/lib/useModal'
+import { useMedia } from '@/lib/useMedia'
 import type { Product } from '@/types'
 
 // CUI-003: sweetness / ice are single-choice and required, toppings are optional extras.
@@ -67,15 +69,46 @@ onMounted(async () => {
   } catch { /* optional */ }
 })
 
-const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') emit('close') }
-onMounted(() => { window.addEventListener('keydown', onKey); document.body.style.overflow = 'hidden' })
-onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.body.style.overflow = '' })
+const box = ref<HTMLElement | null>(null)
+const { backdrop } = useModal(box, () => emit('close'))
+
+// Phones: the sheet follows a downward drag from its top and closes past 110px (or on a quick flick).
+const phone = useMedia('(max-width: 600px)')
+const drag = ref(0)
+let startY = 0
+let startT = 0
+let dragging = false
+function onTouchStart(e: TouchEvent) {
+  if (!phone.value || (box.value?.scrollTop ?? 0) > 0) return
+  dragging = true
+  startY = e.touches[0].clientY
+  startT = performance.now()
+}
+function onTouchMove(e: TouchEvent) {
+  if (!dragging) return
+  const dy = e.touches[0].clientY - startY
+  if (dy <= 0) { drag.value = 0; return } // moving up: let the sheet scroll normally
+  if (e.cancelable) e.preventDefault()
+  drag.value = dy
+}
+function onTouchEnd() {
+  if (!dragging) return
+  dragging = false
+  const fast = drag.value > 40 && drag.value / (performance.now() - startT) > 0.6
+  if (drag.value > 110 || fast) emit('close')
+  else drag.value = 0
+}
 </script>
 
 <template>
-  <div class="ov" @click.self="emit('close')">
-    <section class="md card" role="dialog" aria-modal="true" :aria-label="product.name + ' 客製化'">
-      <button class="md__x" aria-label="關閉" @click="emit('close')">✕</button>
+  <Teleport to="body">
+  <div class="ov" :style="drag ? { '--fade': String(Math.max(0, 1 - drag / 400)) } : undefined" v-bind="backdrop">
+    <section
+      ref="box" class="md card" :class="{ dragging: drag > 0 }" role="dialog" aria-modal="true" :aria-label="product.name + ' 客製化'" tabindex="-1"
+      :style="drag ? { transform: `translateY(${drag}px)` } : undefined"
+      @touchstart.passive="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd"
+    >
+      <button class="md__x" aria-label="關閉" @click="emit('close')"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" /></svg></button>
 
       <div class="md__head">
         <div class="md__art"><img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" /><CupArt v-else :tint="product.tint" :topping="product.topping" :id="product.id" /></div>
@@ -129,12 +162,27 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
       </div>
     </section>
   </div>
+  </Teleport>
 </template>
 
 <style scoped>
-.ov { position: fixed; inset: 0; z-index: 50; background: rgba(43, 33, 24, 0.5); display: grid; place-items: center; padding: 16px; overflow-y: auto; }
-.md { position: relative; width: min(520px, 100%); padding: 28px; background: var(--paper); max-height: calc(100vh - 32px); overflow-y: auto; }
-.md__x { position: absolute; top: 12px; right: 14px; background: none; border: 0; font-size: 18px; cursor: pointer; color: var(--tea); }
+.ov {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(43, 33, 24, calc(0.5 * var(--fade, 1)));
+  animation: fade-in 0.2s ease-out;
+}
+.md {
+  position: relative; width: min(520px, 100%); padding: 28px; background: var(--paper);
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
+  animation: rise-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.md:focus { outline: none; }
+.md__x {
+  position: absolute; top: 10px; right: 10px; z-index: 1; width: 40px; height: 40px; display: grid; place-items: center;
+  background: none; border: 0; border-radius: 50%; cursor: pointer; color: var(--tea); transition: background 0.15s, color 0.15s;
+}
+.md__x:hover { background: var(--paper-deep); color: var(--qinghua); }
+.md__x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .md__head { display: flex; gap: 20px; align-items: center; }
 .md__art { flex: none; width: 84px; height: 130px; }
 .md__art svg, .md__art img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
@@ -157,13 +205,15 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
   .md {
     width: 100%; max-height: 92dvh; padding: 8px 20px 0;
     border-radius: 16px 16px 0 0; border-bottom: 0;
-    animation: up 0.22s ease-out;
+    animation: sheet-up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  .md.dragging { transition: none; }
   .md::before {
     content: ''; display: block; width: 40px; height: 4px; margin: 0 auto 14px;
     background: var(--line); border-radius: 2px;
   }
-  .md__x { top: 14px; }
+  .md__x { top: 6px; right: 8px; }
   .md__art { width: 64px; height: 100px; }
   .md__head h2 { font-size: 22px; }
   .md__foot {
@@ -172,5 +222,4 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); document.b
   }
   .add { margin-top: 12px; }
 }
-@keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 </style>

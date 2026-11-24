@@ -30,6 +30,8 @@ const blocked = computed(() => systemState.maintenance && !session.isAdmin && ro
 
 <style>
 .shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+/* each page fades in when you navigate to it */
+#main > * { animation: page-in 0.3s ease-out; }
 /* leave room for the fixed phone tab bar */
 @media (max-width: 720px) {
   .shell { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }

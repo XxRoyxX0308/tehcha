@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Seal from '@/components/Seal.vue'
 import { useSession } from '@/stores/session'
 import { useStaff } from '@/stores/staff'
+import { useHideOnScroll } from '@/lib/useHideOnScroll'
+import { lockScroll, unlockScroll } from '@/lib/useModal'
+import { useMedia } from '@/lib/useMedia'
 
 // Staff and admin console (SUI / AUI): sidebar on desktop, a drawer on phones.
 const session = useSession()
@@ -34,6 +37,19 @@ onMounted(async () => {
 })
 watch(() => route.fullPath, () => { open.value = false })
 
+// Phones: the top bar slides away on scroll down (never while the drawer is open);
+// the open drawer holds the page still, and Escape or widening the window closes it.
+const { hidden, show } = useHideOnScroll()
+const narrow = useMedia('(max-width: 900px)')
+watch(narrow, (v) => { if (!v) open.value = false })
+watch(open, (v) => (v ? lockScroll() : unlockScroll()))
+const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && open.value) open.value = false }
+onMounted(() => document.addEventListener('keydown', onKey))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKey)
+  if (open.value) unlockScroll()
+})
+
 async function logout() {
   await session.logout()
   void router.push('/login')
@@ -43,7 +59,7 @@ async function logout() {
 <template>
   <div class="cs" :class="{ open }">
     <a class="skip" href="#console-main">跳到主要內容</a>
-    <header class="cs__top">
+    <header class="cs__top" :class="{ 'is-hidden': hidden && !open }" @focusin="show">
       <button class="cs__menu" :aria-expanded="open" aria-controls="console-nav" @click="open = !open">
         <span aria-hidden="true">{{ open ? '✕' : '☰' }}</span><span class="visually-hidden">選單</span>
       </button>
@@ -117,11 +133,13 @@ async function logout() {
   .cs__top {
     display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 30;
     padding: 8px 16px; background: var(--paper-deep); border-bottom: 1px solid var(--line);
+    transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  .cs__top.is-hidden { transform: translateY(-100%); }
   .cs__menu { width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); font-size: 18px; cursor: pointer; color: var(--qinghua); }
   .cs__brand--side { display: none; }
   .cs__nav { display: none; position: fixed; inset: 61px 0 0; z-index: 40; height: auto; border-right: 0; }
-  .cs.open .cs__nav { display: flex; }
+  .cs.open .cs__nav { display: flex; animation: fade-in 0.18s ease-out; overscroll-behavior: contain; }
   .cs__link { min-height: 48px; }
 }
 </style>

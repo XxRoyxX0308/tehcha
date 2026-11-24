@@ -71,6 +71,14 @@ const pick = () => { if (!soldOut.value) emit('pick', props.product) }
 .photo { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
 .is-out :deep(svg), .is-out .photo { opacity: 0.4; filter: grayscale(0.6); }
 
+/* the cup lifts a little under the pointer, so the art reads as tappable */
+.pc, .tile { transition: border-color 0.2s; }
+.pc__art :deep(svg), .tile__art :deep(svg) { transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (hover: hover) {
+  .pc:not(.is-out):hover, .tile:not(.is-out):hover { border-color: color-mix(in srgb, var(--qinghua) 45%, var(--line)); }
+  .pc:not(.is-out) .pc__art:hover :deep(svg), .tile:not(.is-out):hover .tile__art :deep(svg) { transform: translateY(-5px); }
+}
+
 /* ── card (desktop / tablet) ── */
 .pc {
   padding: 18px 18px 16px; display: grid; grid-template-columns: 1fr;

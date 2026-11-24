@@ -106,7 +106,8 @@ function checkout() {
 .amt { min-width: 84px; text-align: right; }
 .rm { background: none; border: 0; color: var(--tea); cursor: pointer; padding: 6px; min-width: 44px; min-height: 44px; }
 .rm:hover { color: var(--seal); }
-.sum { padding: 22px; position: sticky; top: 96px; }
+/* stays below the header, and moves up with it when the header slides away */
+.sum { padding: 22px; position: sticky; top: calc(var(--head-h, 84px) + 12px); transition: top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .empty { display: grid; justify-items: center; gap: 16px; padding-block: 32px; }
 .empty__art { width: 160px; color: var(--qinghua); }
 .sum > .btn { width: 100%; }
